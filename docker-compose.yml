@@ -1,0 +1,123 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: lung-cancer-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lung-cancer-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.2
+    container_name: lung-cancer-mlflow
+    ports:
+      - "5001:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --workers 1
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --serve-artifacts
+
+    healthcheck:
+      test: ["CMD-SHELL", "sleep 2"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lung-cancer-api
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend:/app
+      - model_data:/app/models
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      IMG_SIZE: ${IMG_SIZE}
+      RETRAIN_THRESHOLD: ${RETRAIN_THRESHOLD}
+      EPOCHS: ${EPOCHS}
+      BATCH_SIZE: ${BATCH_SIZE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lung-cancer-celery
+    volumes:
+      - ./backend:/app
+      - model_data:/app/models
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      IMG_SIZE: ${IMG_SIZE}
+      RETRAIN_THRESHOLD: ${RETRAIN_THRESHOLD}
+      EPOCHS: ${EPOCHS}
+      BATCH_SIZE: ${BATCH_SIZE}
+      environment:
+      TF_NUM_INTEROP_THREADS: 1
+      TF_NUM_INTRAOP_THREADS: 1
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    command: celery -A app.celery_app worker --loglevel=info --pool=solo --concurrency=1
+
+volumes:
+  postgres_data:
+  mlflow_data:
+  model_data:

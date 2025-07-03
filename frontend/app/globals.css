@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  /* Define the Fonts (mapped to Next.js font variables) */
+  --font-serif: var(--font-playfair), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Define the Editorial Color Palette */
+  --color-background: #0e0d0c;
+  --color-surface: #1c1a19;
+  --color-primary: #c69f74;
+  --color-secondary: #8a6a4b;
+  --color-muted: #9ca3af;
+  --color-foreground: #ebebe6;
+
+  /* Custom Background Texture */
+  --image-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)\' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* Base Styles */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  /* Apply grain texture */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* Custom Utility Classes */
+@layer utilities {
+  .editorial-input {
+    @apply bg-transparent border-b border-[#333] text-primary transition-all duration-300 rounded-none font-sans;
+  }
+  
+  .editorial-input:focus {
+    @apply border-primary outline-none;
+  }
+
+  .thin-border {
+    border: 1px solid rgba(198, 159, 116, 0.2);
+  }
+}

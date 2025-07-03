@@ -1,0 +1,31 @@
+# --- ML & Data Handling ---
+tensorflow
+numpy
+Pillow
+matplotlib
+seaborn
+
+# --- API Framework ---
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+
+# --- Testing ---
+pytest
+requests
+httpx
+
+# --- Hugging Face ---
+huggingface_hub
+
+# --- MLflow ---
+mlflow==2.9.2
+
+# --- pg ----
+sqlalchemy 
+asyncpg 
+psycopg2-binary
+
+redis
+celery
