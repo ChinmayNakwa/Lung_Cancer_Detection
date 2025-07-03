@@ -4,7 +4,16 @@ emoji: 🩺
 colorFrom: blue
 colorTo: green
 sdk: docker
-pinned: false
+app_port: 8000
+python_version: "3.9"
+pinned: true
+tags:
+  - computer-vision
+  - image-classification
+  - medical
+  - tensorflow
+  - fastapi
+  - docker
 ---
 
 # Lung Cancer Detection API
