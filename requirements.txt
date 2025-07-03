@@ -1,0 +1,14 @@
+# --- ML & Data Handling ---
+tensorflow
+numpy
+Pillow
+
+# --- API Framework ---
+fastapi
+uvicorn[standard]
+python-multipart
+
+# --- Testing ---
+pytest
+requests
+httpx

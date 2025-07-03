@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Model and Data files - DVC will track these instead!
+models/
+# Ignore all contents of the data directory...
+data/*
+
+# ...BUT, make an exception and DO NOT ignore the sample_images subdirectory.
+!data/sample_images/
+
+# IDE and OS specific
+.vscode/
+.idea/
+.DS_Store

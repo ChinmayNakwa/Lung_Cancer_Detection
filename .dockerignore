@@ -1,0 +1,19 @@
+# Git and LFS
+.git/
+.gitattributes
+.gitignore
+.git-lfs/
+
+# Docker
+.dockerignore
+Dockerfile
+
+# Python virtual environment and cache
+venv/
+__pycache__/
+*.pyc
+
+# Local development and OS files
+.vscode/
+.idea/
+.DS_Store
