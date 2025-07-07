@@ -25,3 +25,6 @@ This is the clean, final version of the project.
 ### API Endpoints
 - **GET /**: Health check.
 - **POST /predict**: Upload a CT scan image to get a prediction.
+
+### Deployed on Render
+- **https://lung-cancer-detection-s7se.onrender.com/docs
