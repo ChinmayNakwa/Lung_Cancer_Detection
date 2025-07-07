@@ -27,4 +27,4 @@ This is the clean, final version of the project.
 - **POST /predict**: Upload a CT scan image to get a prediction.
 
 ### Deployed on Render
-- **https://lung-cancer-detection-s7se.onrender.com/docs
+- **https://lung-cancer-detection-s7se.onrender.com/docs**
