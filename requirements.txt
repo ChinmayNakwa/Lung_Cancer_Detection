@@ -12,3 +12,6 @@ python-multipart
 pytest
 requests
 httpx
+
+# --- Hugging Face ---
+huggingface_hub
