@@ -20,7 +20,8 @@ tags:
 
 This repository contains the code for a FastAPI application that serves a lung cancer classification model.
 
-This is the clean, final version of the project.
+<img width="1909" height="1149" alt="image" src="https://github.com/user-attachments/assets/84d8c9f9-1d51-4979-9f93-a357cfdc7d41" />
+
 
 ### API Endpoints
 - **GET /**: Health check.
