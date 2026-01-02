@@ -5,6 +5,7 @@ A full-stack **AI-powered lung cancer detection system** with **online retrainin
 This project goes beyond training a deep learning model — it demonstrates how **real-world ML systems evolve**, retrain, and are monitored over time.
 
 ---
+<img width="1798" height="1074" alt="image" src="https://github.com/user-attachments/assets/16edfa90-da01-484a-958d-000f0571e76f" />
 
 ## ✨ Key Highlights
 
