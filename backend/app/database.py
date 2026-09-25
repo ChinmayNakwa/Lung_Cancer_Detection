@@ -81,7 +81,8 @@ def get_unused_predictions(limit: int):
     """Get human-reviewed predictions not yet used for training.
 
     Only rows with a reviewer-assigned label are returned, so the model is
-    never trained on its own unverified predictions.
+    never trained on its own unverified predictions. Oldest rows come first
+    so holdout rows left over from earlier cycles are not starved.
     """
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -92,7 +93,7 @@ def get_unused_predictions(limit: int):
         FROM predictions
         WHERE used_for_training = FALSE
           AND corrected_class IS NOT NULL
-        ORDER BY created_at DESC
+        ORDER BY created_at ASC
         LIMIT %s
         """,
         (limit,)

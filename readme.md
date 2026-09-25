@@ -67,10 +67,13 @@ The backbone is partially frozen during retraining to support **incremental lear
   * New data is incorporated
   * A new model version is produced
 
+A share of the reviewed samples (`HOLDOUT_FRACTION`, default 20%) is held out from training. The new model is activated only if its accuracy on that holdout is at least as good as the current model's; otherwise it is saved as an inactive version that can be activated manually.
+
 Each retraining cycle produces:
 
 * A **retrain run** (training metrics)
-* A **nested evaluation run** (precision / recall / F1 per class)
+* A **nested baseline run** (current model on the holdout)
+* A **nested evaluation run** (new model on the holdout: precision / recall / F1 per class)
 
 ---
 

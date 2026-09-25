@@ -12,6 +12,7 @@ import seaborn as sns
 
 from PIL import Image
 from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.model_selection import train_test_split
 
 from app.celery_app import celery_app
 from app.database import (
@@ -28,6 +29,7 @@ from app.config import (
     EPOCHS,
     BATCH_SIZE,
     RETRAIN_THRESHOLD,
+    HOLDOUT_FRACTION,
 )
 from app.ml_model import reload_model
 
@@ -103,12 +105,28 @@ def log_training_curves(history, save_path="/tmp/training_curves.png"):
 # ------------------------------------------------------------------
 # Utility: Evaluation Metrics + Confusion Matrix
 # ------------------------------------------------------------------
-def log_evaluation_metrics(model, X, y, save_path="/tmp/confusion_matrix.png"):
-    y_true = np.argmax(y, axis=1)
-    y_pred = model.predict(X)
-    y_pred_cls = np.argmax(y_pred, axis=1)
+def split_holdout(labels):
+    """Return (train_idx, holdout_idx), stratified by class when possible."""
+    indices = np.arange(len(labels))
+    try:
+        return train_test_split(
+            indices, test_size=HOLDOUT_FRACTION, stratify=labels, random_state=42
+        )
+    except ValueError:
+        # A class has too few samples to stratify
+        return train_test_split(
+            indices, test_size=HOLDOUT_FRACTION, random_state=42
+        )
 
-    cm = confusion_matrix(y_true, y_pred_cls)
+
+def log_evaluation_metrics(model, X, y, save_path="/tmp/confusion_matrix.png"):
+    """Log confusion matrix and per-class metrics; return accuracy."""
+    y_true = np.argmax(y, axis=1)
+    y_pred = model.predict(X, verbose=0)
+    y_pred_cls = np.argmax(y_pred, axis=1)
+    class_ids = list(range(len(CLASS_NAMES)))
+
+    cm = confusion_matrix(y_true, y_pred_cls, labels=class_ids)
 
     fig, ax = plt.subplots(figsize=(6, 6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
@@ -121,8 +139,14 @@ def log_evaluation_metrics(model, X, y, save_path="/tmp/confusion_matrix.png"):
 
     mlflow.log_artifact(save_path)
 
+    # A small holdout may miss a class, so pin labels and avoid zero-division errors
     report = classification_report(
-        y_true, y_pred_cls, target_names=CLASS_NAMES, output_dict=True
+        y_true,
+        y_pred_cls,
+        labels=class_ids,
+        target_names=CLASS_NAMES,
+        output_dict=True,
+        zero_division=0,
     )
 
     for cls_name, metrics in report.items():
@@ -130,6 +154,10 @@ def log_evaluation_metrics(model, X, y, save_path="/tmp/confusion_matrix.png"):
             mlflow.log_metric(f"{cls_name}_precision", metrics["precision"])
             mlflow.log_metric(f"{cls_name}_recall", metrics["recall"])
             mlflow.log_metric(f"{cls_name}_f1", metrics["f1-score"])
+
+    accuracy = float(np.mean(y_pred_cls == y_true))
+    mlflow.log_metric("holdout_accuracy", accuracy)
+    return accuracy
 
 
 # ------------------------------------------------------------------
@@ -144,7 +172,7 @@ def retrain_model():
         if len(predictions) < RETRAIN_THRESHOLD:
             return {"status": "skipped", "reason": "insufficient_data"}
 
-        X_train, y_train, prediction_ids = [], [], []
+        X, labels, prediction_ids = [], [], []
 
         for pred in predictions:
             img = Image.open(BytesIO(pred["image_data"])).convert("RGB")
@@ -152,14 +180,20 @@ def retrain_model():
             arr = tf.keras.preprocessing.image.img_to_array(img)
             arr = tf.keras.applications.efficientnet.preprocess_input(arr)
 
-            X_train.append(arr)
-            y_train.append(CLASS_NAMES.index(pred["label"]))
+            X.append(arr)
+            labels.append(CLASS_NAMES.index(pred["label"]))
             prediction_ids.append(pred["id"])
 
-        X_train = np.array(X_train)
-        y_train = tf.keras.utils.to_categorical(
-            y_train, num_classes=len(CLASS_NAMES)
-        )
+        X = np.array(X)
+        y = tf.keras.utils.to_categorical(labels, num_classes=len(CLASS_NAMES))
+        prediction_ids = np.array(prediction_ids)
+
+        # Hold out reviewed samples so the new model is judged on unseen data.
+        # Holdout rows are not marked as trained and feed a later cycle.
+        train_idx, holdout_idx = split_holdout(labels)
+        X_train, y_train = X[train_idx], y[train_idx]
+        X_holdout, y_holdout = X[holdout_idx], y[holdout_idx]
+        train_ids = prediction_ids[train_idx].tolist()
 
         base_model_path = Path(
             "/app/models/EfficientNetB4_Lung_Cancer_prediciton.keras"
@@ -169,14 +203,6 @@ def retrain_model():
 
         model = tf.keras.models.load_model(base_model_path)
 
-        freeze_backbone(model)
-
-        model.compile(
-            optimizer=tf.keras.optimizers.Adam(LEARNING_RATE),
-            loss="categorical_crossentropy",
-            metrics=["accuracy"],
-        )
-
         all_models = get_all_models()
         next_version = max([m["version"] for m in all_models], default=0) + 1
 
@@ -185,11 +211,24 @@ def retrain_model():
         mlflow.set_experiment("lung-cancer-detection")
 
         with mlflow.start_run(run_name=f"retrain_v{next_version}") as run:
+            # ---------------- Baseline (before fine-tuning) ----------------
+            with mlflow.start_run(run_name=f"baseline_v{next_version}", nested=True):
+                baseline_accuracy = log_evaluation_metrics(model, X_holdout, y_holdout)
+
+            freeze_backbone(model)
+
+            model.compile(
+                optimizer=tf.keras.optimizers.Adam(LEARNING_RATE),
+                loss="categorical_crossentropy",
+                metrics=["accuracy"],
+            )
+
             start_time = time.time()
 
             # ---------------- Params ----------------
             mlflow.log_params({
                 "samples": len(X_train),
+                "holdout_samples": len(X_holdout),
                 "epochs": EPOCHS,
                 "batch_size": BATCH_SIZE,
                 "learning_rate": LEARNING_RATE,
@@ -237,8 +276,16 @@ def retrain_model():
             })
 
             with mlflow.start_run(run_name=f"eval_v{next_version}", nested=True):
-                log_evaluation_metrics(model, X_train, y_train)
-                
+                candidate_accuracy = log_evaluation_metrics(model, X_holdout, y_holdout)
+
+            # Only replace the serving model if it is at least as good on unseen data
+            activated = candidate_accuracy >= baseline_accuracy
+            mlflow.log_metrics({
+                "baseline_holdout_accuracy": baseline_accuracy,
+                "candidate_holdout_accuracy": candidate_accuracy,
+            })
+            mlflow.log_param("activated", activated)
+
             mlflow.tensorflow.log_model(model, artifact_path="model")
 
             run_id = mlflow.active_run().info.run_id
@@ -256,16 +303,28 @@ def retrain_model():
         local_model_path = Path(f"/app/models/model_v{next_version}.keras")
         model.save(local_model_path)
 
-        save_model_version(next_version, run_id, is_active=True)
-        mark_as_trained(prediction_ids)
-        reload_model(local_model_path)
+        save_model_version(next_version, run_id, is_active=activated)
+        # Mark rows as used even if the candidate was rejected: otherwise they
+        # keep the count over the threshold and every new review would retrain
+        # on the same data. The rejected version can still be activated manually.
+        mark_as_trained(train_ids)
 
-        logger.info(f"Model v{next_version} retrained successfully")
+        if activated:
+            reload_model(local_model_path)
+            logger.info(f"Model v{next_version} retrained and activated")
+        else:
+            logger.warning(
+                f"Model v{next_version} saved but not activated: holdout accuracy "
+                f"{candidate_accuracy:.3f} < baseline {baseline_accuracy:.3f}"
+            )
 
         return {
             "status": "success",
             "version": next_version,
             "run_id": run_id,
+            "activated": activated,
+            "baseline_holdout_accuracy": baseline_accuracy,
+            "candidate_holdout_accuracy": candidate_accuracy,
         }
 
     except Exception as e:

@@ -32,3 +32,5 @@ CLASS_NAMES = ['adenocarcinoma', 'benign', 'squamous_carcinoma']
 RETRAIN_THRESHOLD = int(os.getenv("RETRAIN_THRESHOLD", "50"))
 EPOCHS = int(os.getenv("EPOCHS", "10"))
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "16"))
+# Share of reviewed samples held out to evaluate each retrained model
+HOLDOUT_FRACTION = float(os.getenv("HOLDOUT_FRACTION", "0.2"))
