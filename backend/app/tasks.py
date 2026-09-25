@@ -33,6 +33,37 @@ from app.ml_model import reload_model
 
 logger = logging.getLogger(__name__)
 
+# Number of trailing backbone layers left trainable (matches the notebook)
+FINE_TUNE_LAYERS = 10
+LEARNING_RATE = 1e-4
+
+
+# ------------------------------------------------------------------
+# Utility: Freeze pretrained backbone for fine-tuning
+# ------------------------------------------------------------------
+def freeze_backbone(model, trainable_layers=FINE_TUNE_LAYERS):
+    """Freeze the EfficientNet backbone except its last few layers.
+
+    The saved model nests the backbone as a single layer
+    (input -> augmentation -> efficientnetb4 -> pooling -> output), so
+    slicing model.layers never reaches the backbone's own layers.
+    """
+    model.trainable = True
+
+    # Augmentation is also a nested model; the backbone is the largest one
+    backbone = max(
+        (l for l in model.layers if isinstance(l, tf.keras.Model)),
+        key=lambda l: len(l.layers),
+    )
+    for layer in backbone.layers[:-trainable_layers]:
+        layer.trainable = False
+
+    # BatchNorm stays frozen: small retrain batches would corrupt its weights
+    for layer in backbone.layers:
+        if isinstance(layer, tf.keras.layers.BatchNormalization):
+            layer.trainable = False
+
+
 # ------------------------------------------------------------------
 # Utility: Training Curves (FILE-BASED, MLflow-safe)
 # ------------------------------------------------------------------
@@ -138,13 +169,10 @@ def retrain_model():
 
         model = tf.keras.models.load_model(base_model_path)
 
-        # Fine-tuning strategy
-        model.trainable = True
-        for layer in model.layers[:-5]:
-            layer.trainable = False
+        freeze_backbone(model)
 
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(1e-4),
+            optimizer=tf.keras.optimizers.Adam(LEARNING_RATE),
             loss="categorical_crossentropy",
             metrics=["accuracy"],
         )
@@ -164,7 +192,8 @@ def retrain_model():
                 "samples": len(X_train),
                 "epochs": EPOCHS,
                 "batch_size": BATCH_SIZE,
-                "learning_rate": 1e-4,
+                "learning_rate": LEARNING_RATE,
+                "fine_tune_layers": FINE_TUNE_LAYERS,
                 "optimizer": "Adam",
                 "architecture": "EfficientNetB4",
                 "img_size": IMG_SIZE,
