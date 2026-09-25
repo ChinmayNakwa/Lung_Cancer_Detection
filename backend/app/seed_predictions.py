@@ -48,10 +48,10 @@ def main():
             cur.execute(
                 """
                 INSERT INTO predictions
-                (filename, image_data, predicted_class, confidence, used_for_training)
-                VALUES (%s, %s, %s, %s, FALSE)
+                (filename, image_data, predicted_class, corrected_class, confidence, used_for_training)
+                VALUES (%s, %s, %s, %s, %s, FALSE)
                 """,
-                (img_path.name, psycopg2.Binary(image_bytes), class_name, "1.0")
+                (img_path.name, psycopg2.Binary(image_bytes), class_name, class_name, "1.0")
             )
 
             total += 1

@@ -78,17 +78,21 @@ def correct_prediction(prediction_id: int, corrected_class: str):
     conn.close()
 
 def get_unused_predictions(limit: int):
-    """Get predictions not used for training."""
+    """Get human-reviewed predictions not yet used for training.
+
+    Only rows with a reviewer-assigned label are returned, so the model is
+    never trained on its own unverified predictions.
+    """
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
+
     cursor.execute(
         """
-        SELECT id, image_data, 
-               COALESCE(corrected_class, predicted_class) as label
-        FROM predictions 
-        WHERE used_for_training = FALSE 
-        ORDER BY created_at DESC 
+        SELECT id, image_data, corrected_class as label
+        FROM predictions
+        WHERE used_for_training = FALSE
+          AND corrected_class IS NOT NULL
+        ORDER BY created_at DESC
         LIMIT %s
         """,
         (limit,)
@@ -115,11 +119,16 @@ def mark_as_trained(prediction_ids: list):
     conn.close()
 
 def count_unused_predictions():
-    """Count predictions not used for training."""
+    """Count human-reviewed predictions not yet used for training."""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("SELECT COUNT(*) FROM predictions WHERE used_for_training = FALSE")
+
+    cursor.execute(
+        """
+        SELECT COUNT(*) FROM predictions
+        WHERE used_for_training = FALSE AND corrected_class IS NOT NULL
+        """
+    )
     count = cursor.fetchone()[0]
     
     cursor.close()

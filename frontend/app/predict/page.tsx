@@ -147,7 +147,7 @@ export default function PredictPage() {
                     
                     <div className="mt-6 pt-6 border-t border-dashed border-white/20">
                         <Link href={`/validate?id=${result.id}`} className="text-xs text-white underline decoration-primary decoration-1 underline-offset-4 hover:text-primary">
-                            Incorrect? Flag for review
+                            Review diagnosis (confirm or correct)
                         </Link>
                     </div>
                 </motion.div>
