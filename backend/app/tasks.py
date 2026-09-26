@@ -19,6 +19,7 @@ from app.database import (
     mark_as_trained,
     save_model_version,
     get_all_models,
+    get_active_model,
 )
 from app.config import (
     MLFLOW_TRACKING_URI,
@@ -195,10 +196,17 @@ def retrain_model():
         X_holdout, y_holdout = X[holdout_idx], y[holdout_idx]
         train_ids = prediction_ids[train_idx].tolist()
 
-        if not BASE_MODEL_PATH.exists():
+        # Continue from the serving model so each version builds on the last
+        active = get_active_model()
+        parent_version = active["version"] if active else None
+        start_path = model_path(parent_version)
+        if not start_path.exists():
+            logger.warning(f"{start_path} not found; starting from base model")
+            parent_version, start_path = None, BASE_MODEL_PATH
+        if not start_path.exists():
             raise FileNotFoundError("Base model not found")
 
-        model = tf.keras.models.load_model(BASE_MODEL_PATH)
+        model = tf.keras.models.load_model(start_path)
 
         all_models = get_all_models()
         next_version = max([m["version"] for m in all_models], default=0) + 1
@@ -236,6 +244,7 @@ def retrain_model():
                 "num_classes": len(CLASS_NAMES),
                 "class_names": ",".join(CLASS_NAMES),
                 "retrain_threshold": RETRAIN_THRESHOLD,
+                "parent_version": parent_version or "base",
             })
 
             # ---------------- Data Distribution ----------------
