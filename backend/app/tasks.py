@@ -1,7 +1,6 @@
 import os
 import time
 import logging
-from pathlib import Path
 from io import BytesIO
 
 import tensorflow as tf
@@ -30,8 +29,9 @@ from app.config import (
     BATCH_SIZE,
     RETRAIN_THRESHOLD,
     HOLDOUT_FRACTION,
+    BASE_MODEL_PATH,
+    model_path,
 )
-from app.ml_model import reload_model
 
 logger = logging.getLogger(__name__)
 
@@ -195,13 +195,10 @@ def retrain_model():
         X_holdout, y_holdout = X[holdout_idx], y[holdout_idx]
         train_ids = prediction_ids[train_idx].tolist()
 
-        base_model_path = Path(
-            "/app/models/EfficientNetB4_Lung_Cancer_prediciton.keras"
-        )
-        if not base_model_path.exists():
+        if not BASE_MODEL_PATH.exists():
             raise FileNotFoundError("Base model not found")
 
-        model = tf.keras.models.load_model(base_model_path)
+        model = tf.keras.models.load_model(BASE_MODEL_PATH)
 
         all_models = get_all_models()
         next_version = max([m["version"] for m in all_models], default=0) + 1
@@ -299,9 +296,9 @@ def retrain_model():
             except Exception as e:
                 logger.warning(f"Model registration skipped: {e}")
 
-        # ---------------- Local Save + Reload ----------------
-        local_model_path = Path(f"/app/models/model_v{next_version}.keras")
-        model.save(local_model_path)
+        # ---------------- Local Save ----------------
+        # The API picks up a newly activated version on its next prediction
+        model.save(model_path(next_version))
 
         save_model_version(next_version, run_id, is_active=activated)
         # Mark rows as used even if the candidate was rejected: otherwise they
@@ -310,7 +307,6 @@ def retrain_model():
         mark_as_trained(train_ids)
 
         if activated:
-            reload_model(local_model_path)
             logger.info(f"Model v{next_version} retrained and activated")
         else:
             logger.warning(

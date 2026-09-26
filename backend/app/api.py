@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import logging
 
-from app.ml_model import predict, reload_model
+from app.ml_model import predict, sync_active_model
 from app.mlflow_utils import sync_model_to_mlflow
 from app.database import (
     init_db, 
@@ -15,7 +15,7 @@ from app.database import (
     get_active_model
 )
 from app.tasks import retrain_model
-from app.config import RETRAIN_THRESHOLD, CLASS_NAMES, MODEL_DIR
+from app.config import RETRAIN_THRESHOLD, CLASS_NAMES, model_path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,6 +41,10 @@ class CorrectionRequest(BaseModel):
 async def startup_event():
     """Initialize database on startup."""
     init_db()
+    try:
+        sync_active_model()
+    except Exception as e:
+        logger.error(f"Could not load active model at startup: {e}")
     logger.info("API started successfully")
 
 @app.get("/")
@@ -157,14 +161,12 @@ def activate_model_version(version: int):
         if not model_exists:
             raise HTTPException(status_code=404, detail=f"Model version {version} not found.")
         
-        activate_model(version)
-        
-        # Reload model in API
-        model_path = MODEL_DIR / f"model_v{version}.keras"
-        if not model_path.exists():
+        # Check the file before activating so the DB never points at a missing model
+        if not model_path(version).exists():
             raise HTTPException(status_code=404, detail=f"Model file not found for version {version}.")
         
-        reload_model(model_path)
+        activate_model(version)
+        sync_active_model()
         
         return {
             "status": "success",

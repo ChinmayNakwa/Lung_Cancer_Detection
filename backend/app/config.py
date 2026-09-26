@@ -25,6 +25,14 @@ MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
 # Model
 MODEL_DIR = Path("models")
 MODEL_NAME = "lung_cancer_model"
+BASE_MODEL_PATH = MODEL_DIR / "EfficientNetB4_Lung_Cancer_prediciton.keras"
+
+
+def model_path(version=None):
+    """Saved model file for a version; None means the original base model."""
+    return BASE_MODEL_PATH if version is None else MODEL_DIR / f"model_v{version}.keras"
+
+
 IMG_SIZE = int(os.getenv("IMG_SIZE", "256"))
 CLASS_NAMES = ['adenocarcinoma', 'benign', 'squamous_carcinoma']
 
