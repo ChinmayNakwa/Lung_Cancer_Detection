@@ -142,7 +142,12 @@ IMG_SIZE=224
 EPOCHS=10
 BATCH_SIZE=16
 RETRAIN_THRESHOLD=50
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change-me
+JWT_SECRET=<long random string, e.g. from `openssl rand -hex 32`>
 ```
+
+Reviewing labels, retraining and activating models require an admin login; these endpoints reject every request until the three auth variables are set. The frontend sends users to the backend's `/login` and needs `AUTH_SECRET` (for NextAuth) and optionally `NEXT_PUBLIC_API_URL` in `frontend/.env.local`.
 
 ### 3️⃣ Start services
 

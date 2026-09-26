@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { getStats, getModels, triggerRetrain, Stats, ModelInfo } from '@/app/lib/api';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Terminal, Loader2, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function AdminPage() {
+  const { data: session } = useSession();
   const [stats, setStats] = useState<Stats | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
   
@@ -26,7 +28,7 @@ export default function AdminPage() {
     try {
       // Simulate a slight delay for dramatic effect if API is too fast
       const [res] = await Promise.all([
-          triggerRetrain(),
+          triggerRetrain(session?.accessToken),
           new Promise(resolve => setTimeout(resolve, 800)) 
       ]);
 

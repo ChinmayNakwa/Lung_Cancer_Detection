@@ -73,6 +73,10 @@ services:
       RETRAIN_THRESHOLD: ${RETRAIN_THRESHOLD}
       EPOCHS: ${EPOCHS}
       BATCH_SIZE: ${BATCH_SIZE}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy

@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { correctPrediction } from '@/app/lib/api';
 import clsx from 'clsx';
 
@@ -15,6 +16,7 @@ const DIAGNOSIS_OPTIONS = [
 function ValidateContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const idParam = searchParams.get('id');
   
   const [predId, setPredId] = useState(idParam || '');
@@ -25,7 +27,7 @@ function ValidateContent() {
     if (!predId || !selectedClass) return;
     setStatus('submitting');
     try {
-      await correctPrediction(parseInt(predId), selectedClass);
+      await correctPrediction(parseInt(predId), selectedClass, session?.accessToken);
       setStatus('success');
       setTimeout(() => router.push('/admin'), 1500);
     } catch (e) {

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import logging
@@ -15,7 +15,8 @@ from app.database import (
     get_active_model
 )
 from app.tasks import retrain_model
-from app.config import RETRAIN_THRESHOLD, CLASS_NAMES, model_path
+from app.auth import verify_credentials, create_access_token, require_admin
+from app.config import RETRAIN_THRESHOLD, CLASS_NAMES, CORS_ORIGINS, model_path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,14 +29,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 class CorrectionRequest(BaseModel):
     corrected_class: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 @app.on_event("startup")
 async def startup_event():
@@ -54,6 +59,19 @@ def read_root():
         "status": "ok", 
         "message": "Welcome to the Lung Cancer Detection API!",
         "classes": CLASS_NAMES
+    }
+
+@app.post("/login")
+def login(request: LoginRequest):
+    """Exchange admin credentials for a bearer token."""
+    if not verify_credentials(request.username, request.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+    token, expires = create_access_token(request.username)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_at": int(expires.timestamp()),
+        "username": request.username
     }
 
 @app.post("/predict")
@@ -87,7 +105,7 @@ async def predict_image(file: UploadFile = File(...)):
         logger.error(f"Error during prediction: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred.")
 
-@app.put("/correct/{prediction_id}")
+@app.put("/correct/{prediction_id}", dependencies=[Depends(require_admin)])
 def correct_label(prediction_id: int, request: CorrectionRequest):
     """Correct a prediction label."""
     if request.corrected_class not in CLASS_NAMES:
@@ -118,7 +136,7 @@ def correct_label(prediction_id: int, request: CorrectionRequest):
         logger.error(f"Error correcting prediction: {e}")
         raise HTTPException(status_code=500, detail="Failed to correct prediction.")
 
-@app.post("/retrain")
+@app.post("/retrain", dependencies=[Depends(require_admin)])
 def trigger_retrain():
     """Manually trigger model retraining."""
     unused_count = count_unused_predictions()
@@ -151,7 +169,7 @@ def list_models():
         logger.error(f"Error listing models: {e}")
         raise HTTPException(status_code=500, detail="Failed to list models.")
 
-@app.post("/models/{version}/activate")
+@app.post("/models/{version}/activate", dependencies=[Depends(require_admin)])
 def activate_model_version(version: int):
     """Activate a specific model version."""
     try:
@@ -208,7 +226,7 @@ def get_stats():
         logger.error(f"Error getting stats: {e}")
         raise HTTPException(status_code=500, detail="Failed to get stats.")
     
-@app.post("/models/sync")
+@app.post("/models/sync", dependencies=[Depends(require_admin)])
 def sync_model():
     """Manually sync the current model to MLflow."""
     try:

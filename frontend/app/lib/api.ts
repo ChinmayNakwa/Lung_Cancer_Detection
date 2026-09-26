@@ -21,6 +21,11 @@ export interface ModelInfo {
   created_at: string;
 }
 
+// Admin endpoints require the bearer token issued by the backend at login
+function authHeaders(token?: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function uploadImage(file: File): Promise<PredictionResult> {
   const formData = new FormData();
   formData.append("file", file);
@@ -34,10 +39,10 @@ export async function uploadImage(file: File): Promise<PredictionResult> {
   return res.json();
 }
 
-export async function correctPrediction(id: number, correctClass: string) {
+export async function correctPrediction(id: number, correctClass: string, token?: string) {
   const res = await fetch(`${API_URL}/correct/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify({ corrected_class: correctClass }),
   });
   if (!res.ok) throw new Error("Correction failed");
@@ -54,13 +59,14 @@ export async function getModels(): Promise<{ models: ModelInfo[] }> {
   return res.json();
 }
 
-export async function triggerRetrain() {
-  const res = await fetch(`${API_URL}/retrain`, { method: "POST" });
+export async function triggerRetrain(token?: string) {
+  const res = await fetch(`${API_URL}/retrain`, { method: "POST", headers: authHeaders(token) });
+  if (!res.ok) throw new Error("Retrain request failed");
   return res.json();
 }
 
-export async function activateModel(version: number) {
-  const res = await fetch(`${API_URL}/models/${version}/activate`, { method: "POST" });
+export async function activateModel(version: number, token?: string) {
+  const res = await fetch(`${API_URL}/models/${version}/activate`, { method: "POST", headers: authHeaders(token) });
   if (!res.ok) throw new Error("Activation failed");
   return res.json();
 }
