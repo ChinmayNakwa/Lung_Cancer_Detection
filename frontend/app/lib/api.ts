@@ -4,7 +4,6 @@ export interface PredictionResult {
   predicted_class: string;
   confidence: number;
   id: number;
-  retraining_triggered?: boolean;
 }
 
 export interface Stats {

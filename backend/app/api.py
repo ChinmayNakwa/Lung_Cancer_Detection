@@ -76,16 +76,7 @@ async def predict_image(file: UploadFile = File(...)):
         )
         
         prediction_result["id"] = prediction_id
-        
-        # Check if retraining is needed
-        unused_count = count_unused_predictions()
-        logger.info(f"Unused predictions: {unused_count}")
-        
-        if unused_count >= RETRAIN_THRESHOLD:
-            logger.info(f"Triggering retraining with {unused_count} images")
-            retrain_model.delay()
-            prediction_result["retraining_triggered"] = True
-        
+
         return prediction_result
     
     except Exception as e:
@@ -103,11 +94,22 @@ def correct_label(prediction_id: int, request: CorrectionRequest):
     
     try:
         correct_prediction(prediction_id, request.corrected_class)
-        return {
+        result = {
             "status": "success",
             "prediction_id": prediction_id,
             "corrected_class": request.corrected_class
         }
+
+        # Only reviewed samples count toward retraining, so check here
+        unused_count = count_unused_predictions()
+        logger.info(f"Reviewed samples awaiting training: {unused_count}")
+
+        if unused_count >= RETRAIN_THRESHOLD:
+            logger.info(f"Triggering retraining with {unused_count} images")
+            retrain_model.delay()
+            result["retraining_triggered"] = True
+
+        return result
     except Exception as e:
         logger.error(f"Error correcting prediction: {e}")
         raise HTTPException(status_code=500, detail="Failed to correct prediction.")
