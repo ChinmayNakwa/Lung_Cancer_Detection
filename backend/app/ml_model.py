@@ -9,6 +9,15 @@ from app.database import get_active_model
 
 logger = logging.getLogger(__name__)
 
+
+class ModelNotLoadedError(RuntimeError):
+    """No model could be loaded, so predictions are unavailable."""
+
+
+class InvalidImageError(ValueError):
+    """The uploaded bytes could not be decoded as an image."""
+
+
 class ModelManager:
     """Serves whichever model version is marked active in the database.
 
@@ -48,38 +57,44 @@ class ModelManager:
             self.model = self._load(BASE_MODEL_PATH)
 
     def predict(self, image_bytes: bytes):
-        """Predict from image bytes - matches training preprocessing exactly."""
+        """Predict from image bytes - matches training preprocessing exactly.
+
+        Raises InvalidImageError for undecodable input and
+        ModelNotLoadedError when no model is available.
+        """
+        # Decode first so bad input is reported as such even without a model
+        try:
+            img = Image.open(BytesIO(image_bytes)).convert('RGB')
+        except Exception as e:
+            raise InvalidImageError(f"Could not decode image: {e}") from e
+
         try:
             self.sync_active_model()
         except Exception as e:
             logger.error(f"Could not check active model version: {e}")
 
         if self.model is None:
-            return {"error": "Model is not loaded"}
+            raise ModelNotLoadedError("Model is not loaded")
 
-        try:
-            img = Image.open(BytesIO(image_bytes)).convert('RGB')
-            img_resized = img.resize((IMG_SIZE, IMG_SIZE))
-            img_array = tf.keras.preprocessing.image.img_to_array(img_resized)
-            img_array = np.expand_dims(img_array, axis=0)
-            # img_array = img_array / 255.0
+        img_resized = img.resize((IMG_SIZE, IMG_SIZE))
+        img_array = tf.keras.preprocessing.image.img_to_array(img_resized)
+        img_array = np.expand_dims(img_array, axis=0)
+        # img_array = img_array / 255.0
 
-            # Make prediction
-            predictions = self.model.predict(img_array)
-            scores = predictions[0]
-            predicted_class = CLASS_NAMES[np.argmax(scores)]
-            confidence = 100 * np.max(scores)
+        # Make prediction
+        predictions = self.model.predict(img_array)
+        scores = predictions[0]
+        predicted_class = CLASS_NAMES[np.argmax(scores)]
+        confidence = 100 * np.max(scores)
 
-            # Return all class probabilities for debugging
-            all_predictions = {CLASS_NAMES[i]: float(scores[i] * 100) for i in range(len(CLASS_NAMES))}
+        # Return all class probabilities for debugging
+        all_predictions = {CLASS_NAMES[i]: float(scores[i] * 100) for i in range(len(CLASS_NAMES))}
 
-            return {
-                "predicted_class": predicted_class,
-                "confidence": f"{confidence:.2f}%",
-                "all_predictions": all_predictions
-            }
-        except Exception as e:
-            return {"error": f"Prediction failed: {e}"}
+        return {
+            "predicted_class": predicted_class,
+            "confidence": f"{confidence:.2f}%",
+            "all_predictions": all_predictions
+        }
 
 # Global model manager
 model_manager = ModelManager()

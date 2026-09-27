@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import logging
 
-from app.ml_model import predict, sync_active_model
+from app.ml_model import predict, sync_active_model, InvalidImageError, ModelNotLoadedError
 from app.mlflow_utils import sync_model_to_mlflow
 from app.database import (
     init_db, 
@@ -77,33 +77,35 @@ def login(request: LoginRequest):
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...)):
     """Upload image for prediction."""
-    if not file.content_type.startswith("image/"):
+    if not (file.content_type or "").startswith("image/"):
         raise HTTPException(status_code=400, detail="File provided is not an image.")
     
+    image_bytes = await file.read()
+    
     try:
-        image_bytes = await file.read()
-        
         logger.info("Making prediction...")
         prediction_result = predict(image_bytes)
-        
-        if "error" in prediction_result:
-            raise HTTPException(status_code=500, detail=prediction_result["error"])
-        
-        # Save to database
+    except InvalidImageError:
+        raise HTTPException(status_code=400, detail="File could not be read as an image.")
+    except ModelNotLoadedError:
+        raise HTTPException(status_code=503, detail="Model is not loaded.")
+    except Exception:
+        logger.exception("Error during prediction")
+        raise HTTPException(status_code=500, detail="An internal error occurred.")
+    
+    try:
         prediction_id = save_prediction(
             filename=file.filename,
             image_bytes=image_bytes,
             predicted_class=prediction_result["predicted_class"],
             confidence=prediction_result["confidence"]
         )
-        
-        prediction_result["id"] = prediction_id
-
-        return prediction_result
+    except Exception:
+        logger.exception("Error saving prediction")
+        raise HTTPException(status_code=500, detail="Failed to save prediction.")
     
-    except Exception as e:
-        logger.error(f"Error during prediction: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred.")
+    prediction_result["id"] = prediction_id
+    return prediction_result
 
 @app.put("/correct/{prediction_id}", dependencies=[Depends(require_admin)])
 def correct_label(prediction_id: int, request: CorrectionRequest):
