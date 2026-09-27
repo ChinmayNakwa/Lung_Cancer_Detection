@@ -187,14 +187,15 @@ def retrain_model():
 
         X = np.array(X)
         y = tf.keras.utils.to_categorical(labels, num_classes=len(CLASS_NAMES))
-        prediction_ids = np.array(prediction_ids)
 
         # Hold out reviewed samples so the new model is judged on unseen data.
         # Holdout rows are not marked as trained and feed a later cycle.
         train_idx, holdout_idx = split_holdout(labels)
         X_train, y_train = X[train_idx], y[train_idx]
         X_holdout, y_holdout = X[holdout_idx], y[holdout_idx]
-        train_ids = prediction_ids[train_idx].tolist()
+        train_samples = [
+            (prediction_ids[i], CLASS_NAMES[labels[i]]) for i in train_idx
+        ]
 
         # Continue from the serving model so each version builds on the last
         active = get_active_model()
@@ -313,7 +314,7 @@ def retrain_model():
         # Mark rows as used even if the candidate was rejected: otherwise they
         # keep the count over the threshold and every new review would retrain
         # on the same data. The rejected version can still be activated manually.
-        mark_as_trained(train_ids)
+        mark_as_trained(train_samples)
 
         if activated:
             logger.info(f"Model v{next_version} retrained and activated")

@@ -117,7 +117,8 @@ def correct_label(prediction_id: int, request: CorrectionRequest):
         )
     
     try:
-        correct_prediction(prediction_id, request.corrected_class)
+        if not correct_prediction(prediction_id, request.corrected_class):
+            raise HTTPException(status_code=404, detail=f"Prediction {prediction_id} not found.")
         result = {
             "status": "success",
             "prediction_id": prediction_id,
@@ -134,6 +135,8 @@ def correct_label(prediction_id: int, request: CorrectionRequest):
             result["retraining_triggered"] = True
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error correcting prediction: {e}")
         raise HTTPException(status_code=500, detail="Failed to correct prediction.")

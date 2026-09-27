@@ -63,19 +63,35 @@ def save_prediction(filename: str, image_bytes: bytes, predicted_class: str, con
     
     return prediction_id
 
-def correct_prediction(prediction_id: int, corrected_class: str):
-    """Update the corrected class for a prediction."""
+def correct_prediction(prediction_id: int, corrected_class: str) -> bool:
+    """Update the corrected class for a prediction.
+
+    If the label changes on a row already used for training, the row is
+    re-queued so the new label is learned. Returns False if no row exists.
+    """
     conn = get_connection()
     cursor = conn.cursor()
     
+    # SET expressions see the row's old values, so compare before overwriting
     cursor.execute(
-        "UPDATE predictions SET corrected_class = %s WHERE id = %s",
-        (corrected_class, prediction_id)
+        """
+        UPDATE predictions
+        SET used_for_training = CASE
+                WHEN corrected_class IS DISTINCT FROM %s THEN FALSE
+                ELSE used_for_training
+            END,
+            corrected_class = %s
+        WHERE id = %s
+        """,
+        (corrected_class, corrected_class, prediction_id)
     )
+    updated = cursor.rowcount > 0
     
     conn.commit()
     cursor.close()
     conn.close()
+    
+    return updated
 
 def get_unused_predictions(limit: int):
     """Get human-reviewed predictions not yet used for training.
@@ -105,14 +121,25 @@ def get_unused_predictions(limit: int):
     
     return results
 
-def mark_as_trained(prediction_ids: list):
-    """Mark predictions as used for training."""
+def mark_as_trained(samples: list):
+    """Mark (prediction_id, label) samples as used for training.
+
+    Rows relabelled while training ran are skipped, so the new label is
+    picked up by a later cycle instead of being lost.
+    """
     conn = get_connection()
     cursor = conn.cursor()
     
+    ids = [prediction_id for prediction_id, _ in samples]
+    labels = [label for _, label in samples]
     cursor.execute(
-        "UPDATE predictions SET used_for_training = TRUE WHERE id = ANY(%s)",
-        (prediction_ids,)
+        """
+        UPDATE predictions p
+        SET used_for_training = TRUE
+        FROM unnest(%s::int[], %s::text[]) AS t(id, label)
+        WHERE p.id = t.id AND p.corrected_class = t.label
+        """,
+        (ids, labels)
     )
     
     conn.commit()
