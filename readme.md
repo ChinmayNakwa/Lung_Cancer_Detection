@@ -45,7 +45,7 @@ MLflow Tracking + Model Versioning
 ## 🧠 Model Details
 
 * **Architecture**: EfficientNetB4
-* **Input Size**: Configurable via environment variables
+* **Input Size**: 256×256 (`IMG_SIZE`; must match the size the model was trained at)
 * **Classes**:
 
   * Adenocarcinoma
@@ -138,7 +138,7 @@ Create a `.env` file:
 POSTGRES_DB=lungdb
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-IMG_SIZE=224
+IMG_SIZE=256
 EPOCHS=10
 BATCH_SIZE=16
 RETRAIN_THRESHOLD=50
