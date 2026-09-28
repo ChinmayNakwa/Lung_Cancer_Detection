@@ -1,5 +1,6 @@
 import os
 import time
+import hashlib
 import logging
 from io import BytesIO
 
@@ -255,7 +256,10 @@ def retrain_model():
             for cls, cnt in zip(unique, counts):
                 mlflow.log_metric(f"class_count_{CLASS_NAMES[cls]}", cnt)
 
-            mlflow.log_param("training_data_hash", hash(X_train.tobytes()))
+            # sha256 is stable across processes, unlike Python's salted hash()
+            mlflow.log_param(
+                "training_data_hash", hashlib.sha256(X_train.tobytes()).hexdigest()
+            )
 
             # ---------------- Training ----------------
             history = model.fit(
