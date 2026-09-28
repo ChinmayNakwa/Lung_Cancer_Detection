@@ -333,6 +333,7 @@ def retrain_model():
             "candidate_holdout_accuracy": candidate_accuracy,
         }
 
-    except Exception as e:
+    except Exception:
         logger.exception("Retraining failed")
-        return {"status": "error", "error": str(e)}
+        # Re-raise so Celery records the task as FAILURE, not SUCCESS
+        raise
