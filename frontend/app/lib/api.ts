@@ -51,11 +51,13 @@ export async function correctPrediction(id: number, correctClass: string, token?
 
 export async function getStats(): Promise<Stats> {
   const res = await fetch(`${API_URL}/stats`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to load stats");
   return res.json();
 }
 
 export async function getModels(): Promise<{ models: ModelInfo[] }> {
   const res = await fetch(`${API_URL}/models`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to load models");
   return res.json();
 }
 

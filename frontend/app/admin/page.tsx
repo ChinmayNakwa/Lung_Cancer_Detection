@@ -11,14 +11,20 @@ export default function AdminPage() {
   const { data: session } = useSession();
   const [stats, setStats] = useState<Stats | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [loadError, setLoadError] = useState(false);
   
   // New State for Retraining UI
   const [retrainStatus, setRetrainStatus] = useState<'idle' | 'loading' | 'success' | 'skipped' | 'error'>('idle');
   const [retrainResult, setRetrainResult] = useState<any>(null);
 
   useEffect(() => {
-    getStats().then(setStats);
-    getModels().then(data => setModels(data.models));
+    Promise.all([getStats(), getModels()])
+      .then(([statsData, modelsData]) => {
+        setStats(statsData);
+        setModels(modelsData.models);
+        setLoadError(false);
+      })
+      .catch(() => setLoadError(true));
   }, [retrainStatus]); // Auto-refresh stats when retraining status changes
 
   const handleRetrain = async () => {
@@ -53,8 +59,13 @@ export default function AdminPage() {
             </div>
             {/* Status Indicator */}
             <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/>
-                <span className="text-xs font-mono text-muted uppercase">System Online</span>
+                <div className={clsx(
+                    "w-2 h-2 rounded-full",
+                    loadError ? "bg-red-500" : "bg-green-500 animate-pulse"
+                )}/>
+                <span className="text-xs font-mono text-muted uppercase">
+                    {loadError ? "API Unreachable" : "System Online"}
+                </span>
             </div>
         </header>
 
