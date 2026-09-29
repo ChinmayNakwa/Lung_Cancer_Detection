@@ -16,7 +16,14 @@ from app.database import (
 )
 from app.tasks import retrain_model
 from app.auth import verify_credentials, create_access_token, require_admin
-from app.config import RETRAIN_THRESHOLD, CLASS_NAMES, CORS_ORIGINS, model_path
+from app.config import (
+    RETRAIN_THRESHOLD,
+    CLASS_NAMES,
+    CORS_ORIGINS,
+    MAX_UPLOAD_MB,
+    MAX_UPLOAD_BYTES,
+    model_path,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,7 +87,10 @@ async def predict_image(file: UploadFile = File(...)):
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(status_code=400, detail="File provided is not an image.")
     
-    image_bytes = await file.read()
+    # Read one byte past the limit so oversized files are caught without loading them whole
+    image_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File exceeds the {MAX_UPLOAD_MB} MB upload limit.")
     
     try:
         logger.info("Making prediction...")

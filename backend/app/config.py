@@ -47,6 +47,9 @@ def model_path(version=None):
 
 
 IMG_SIZE = int(os.getenv("IMG_SIZE", "256"))
+# Largest image /predict accepts
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "10"))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 CLASS_NAMES = ['adenocarcinoma', 'benign', 'squamous_carcinoma']
 
 # Training

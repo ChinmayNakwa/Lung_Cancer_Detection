@@ -83,6 +83,17 @@ def test_predict_undecodable_image():
     assert response.status_code == 400
     assert response.json() == {"detail": "File could not be read as an image."}
 
+def test_predict_rejects_oversized_upload(monkeypatch):
+    """
+    Uploads over the size limit should be rejected before being processed.
+    """
+    monkeypatch.setattr("app.api.MAX_UPLOAD_BYTES", 10)
+    files = {"file": ("scan.png", b"x" * 11, "image/png")}
+
+    response = client.post("/predict", files=files)
+
+    assert response.status_code == 413
+
 @pytest.mark.parametrize("method, path", [
     ("PUT", "/correct/1"),
     ("POST", "/retrain"),

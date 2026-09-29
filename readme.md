@@ -142,6 +142,7 @@ IMG_SIZE=256
 EPOCHS=10
 BATCH_SIZE=16
 RETRAIN_THRESHOLD=50
+MAX_UPLOAD_MB=10
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me
 JWT_SECRET=<long random string, e.g. from `openssl rand -hex 32`>
