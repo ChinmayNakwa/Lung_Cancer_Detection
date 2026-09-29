@@ -235,11 +235,12 @@ def get_stats():
 def sync_model():
     """Manually sync the current model to MLflow."""
     try:
-        sync_model_to_mlflow(CLASS_NAMES)
+        run_id, created = sync_model_to_mlflow(CLASS_NAMES)
         return {
             "status": "success",
-            "message": "Model synced to MLflow",
-            "model_name": "LungCancerClassifier"
+            "message": "Model synced to MLflow" if created else "Model already synced to MLflow",
+            "model_name": "LungCancerClassifier",
+            "run_id": run_id
         }
     except Exception as e:
         logger.error(f"MLflow sync failed: {e}")
