@@ -44,10 +44,11 @@ services:
       --serve-artifacts
 
     healthcheck:
-      test: ["CMD-SHELL", "sleep 2"]
+      # The image has Python but not curl; /health returns 200 once the server is up
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
       interval: 5s
       timeout: 5s
-      retries: 3
+      retries: 10
       start_period: 15s
 
   api:
@@ -107,7 +108,6 @@ services:
       RETRAIN_THRESHOLD: ${RETRAIN_THRESHOLD}
       EPOCHS: ${EPOCHS}
       BATCH_SIZE: ${BATCH_SIZE}
-      environment:
       TF_NUM_INTEROP_THREADS: 1
       TF_NUM_INTRAOP_THREADS: 1
       OMP_NUM_THREADS: 1
