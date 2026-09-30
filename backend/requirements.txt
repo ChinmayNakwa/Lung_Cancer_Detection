@@ -21,7 +21,7 @@ httpx
 huggingface_hub
 
 # --- MLflow ---
-mlflow==2.9.2
+mlflow==3.16.1
 
 # --- pg ----
 sqlalchemy 

@@ -297,14 +297,15 @@ def retrain_model():
             })
             mlflow.log_param("activated", activated)
 
-            mlflow.tensorflow.log_model(model, artifact_path="model")
+            # MLflow 3 stores models as logged models; register via the returned URI
+            model_info = mlflow.tensorflow.log_model(model, name="model")
 
             run_id = mlflow.active_run().info.run_id
 
             # Model Registry (safe)
             try:
                 mlflow.register_model(
-                    f"runs:/{run_id}/model",
+                    model_info.model_uri,
                     MODEL_NAME
                 )
             except Exception as e:

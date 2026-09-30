@@ -51,7 +51,7 @@ def sync_model_to_mlflow(class_names: list):
 
         mlflow.keras.log_model(
             model,
-            artifact_path="model",
+            name="model",
             registered_model_name=REGISTERED_MODEL_NAME
         )
 

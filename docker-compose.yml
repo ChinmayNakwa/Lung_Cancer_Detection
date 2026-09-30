@@ -28,20 +28,27 @@ services:
       retries: 5
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.9.2
+    image: ghcr.io/mlflow/mlflow:v3.16.1
     container_name: lung-cancer-mlflow
     ports:
       - "5001:5000"
     volumes:
       - mlflow_data:/mlflow
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --workers 1
-      --backend-store-uri sqlite:///mlflow/mlflow.db
-      --default-artifact-root /mlflow/artifacts
-      --serve-artifacts
+    # Upgrade the schema first so volumes created by older MLflow versions keep working.
+    # MLflow 3 rejects unknown Host headers, so allow the compose service name too.
+    command:
+      - sh
+      - -c
+      - >-
+        mlflow db upgrade sqlite:///mlflow/mlflow.db &&
+        exec mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --workers 1
+        --backend-store-uri sqlite:///mlflow/mlflow.db
+        --default-artifact-root /mlflow/artifacts
+        --serve-artifacts
+        --allowed-hosts mlflow:5000,localhost:5000,localhost:5001
 
     healthcheck:
       # The image has Python but not curl; /health returns 200 once the server is up
