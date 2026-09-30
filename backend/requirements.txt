@@ -1,32 +1,33 @@
+# Exact versions tested together; upgrade deliberately and re-run the tests
 # --- ML & Data Handling ---
-tensorflow
-numpy
-Pillow
-matplotlib
-seaborn
+tensorflow==2.19.1
+numpy==1.26.4
+Pillow==12.3.0
+matplotlib==3.11.2
+seaborn==0.13.2
 
 # --- API Framework ---
-fastapi
-uvicorn[standard]
-python-multipart
-python-dotenv
-PyJWT
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+python-dotenv==1.2.3
+PyJWT==2.15.1
 
 # --- Testing ---
-pytest
-requests
-httpx
+pytest==9.1.1
+requests==2.34.2
+httpx==0.28.1
 
 # --- Hugging Face ---
-huggingface_hub
+huggingface_hub==2.0.0
 
 # --- MLflow ---
 mlflow==3.16.1
 
 # --- pg ----
-sqlalchemy 
-asyncpg 
-psycopg2-binary
+sqlalchemy==2.1.1
+asyncpg==0.31.0
+psycopg2-binary==2.9.13
 
-redis
-celery
+redis==8.1.0
+celery==5.6.3
