@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,10 +32,22 @@ from app.config import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup."""
+    init_db()
+    try:
+        sync_active_model()
+    except Exception as e:
+        logger.error(f"Could not load active model at startup: {e}")
+    logger.info("API started successfully")
+    yield
+
 app = FastAPI(
     title="Lung Cancer Prediction API",
     description="An API to classify images using an EfficientNetB4 Model with auto-retraining.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -61,16 +75,6 @@ def queue_retrain():
     except Exception:
         retrain_lock.release(token)
         raise
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup."""
-    init_db()
-    try:
-        sync_active_model()
-    except Exception as e:
-        logger.error(f"Could not load active model at startup: {e}")
-    logger.info("API started successfully")
 
 @app.get("/")
 def read_root():

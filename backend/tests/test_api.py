@@ -95,6 +95,17 @@ def test_predict_rejects_oversized_upload(monkeypatch):
 
     assert response.status_code == 413
 
+def test_startup_initializes_database_and_model(monkeypatch):
+    """
+    Starting the app should create the tables and load the active model.
+    """
+    started = []
+    monkeypatch.setattr("app.api.init_db", lambda: started.append("db"))
+    monkeypatch.setattr("app.api.sync_active_model", lambda: started.append("model"))
+
+    with TestClient(app):
+        assert started == ["db", "model"]
+
 def test_predict_runs_blocking_work_off_the_event_loop(monkeypatch):
     """
     Model and database calls must not run on the event loop, or one slow
