@@ -5,7 +5,7 @@ A full-stack **AI-powered lung cancer detection system** with **online retrainin
 This project goes beyond training a deep learning model — it demonstrates how **real-world ML systems evolve**, retrain, and are monitored over time.
 
 ---
-<img width="1798" height="1074" alt="image" src="https://github.com/user-attachments/assets/16edfa90-da01-484a-958d-000f0571e76f" />
+<img width="1798" height="1074" alt="LUNG / SCAN home page with the headline &quot;EfficientNetB4 Detection&quot; and a Start Diagnosis link" src="https://github.com/user-attachments/assets/16edfa90-da01-484a-958d-000f0571e76f" />
 
 ## ✨ Key Highlights
 
@@ -162,7 +162,7 @@ After `LOGIN_MAX_FAILURES` (default 5) failed logins from one IP, `/login` retur
 docker compose up --build
 ```
 
-* FastAPI → `http://localhost:8000`
+* FastAPI → `http://localhost:8001`
 * MLflow UI → `http://localhost:5001`
 
 ---
