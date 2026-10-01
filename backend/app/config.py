@@ -63,3 +63,5 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", "16"))
 RETRAIN_LOCK_TIMEOUT = int(os.getenv("RETRAIN_LOCK_TIMEOUT", "7200"))
 # Share of reviewed samples held out to evaluate each retrained model
 HOLDOUT_FRACTION = float(os.getenv("HOLDOUT_FRACTION", "0.2"))
+# Fewest samples to hold out, so accuracy is not judged on a handful of images
+MIN_HOLDOUT_SAMPLES = int(os.getenv("MIN_HOLDOUT_SAMPLES", "20"))

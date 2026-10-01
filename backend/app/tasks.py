@@ -32,6 +32,7 @@ from app.config import (
     BATCH_SIZE,
     RETRAIN_THRESHOLD,
     HOLDOUT_FRACTION,
+    MIN_HOLDOUT_SAMPLES,
     BASE_MODEL_PATH,
     model_path,
 )
@@ -108,17 +109,25 @@ def log_training_curves(history, save_path="/tmp/training_curves.png"):
 # ------------------------------------------------------------------
 # Utility: Evaluation Metrics + Confusion Matrix
 # ------------------------------------------------------------------
+def holdout_size(n_samples):
+    """HOLDOUT_FRACTION of the samples, raised to MIN_HOLDOUT_SAMPLES but
+    never more than half, so training keeps most of the data."""
+    size = max(round(n_samples * HOLDOUT_FRACTION), MIN_HOLDOUT_SAMPLES)
+    return max(1, min(size, n_samples // 2))
+
+
 def split_holdout(labels):
     """Return (train_idx, holdout_idx), stratified by class when possible."""
     indices = np.arange(len(labels))
+    test_size = holdout_size(len(labels))
     try:
         return train_test_split(
-            indices, test_size=HOLDOUT_FRACTION, stratify=labels, random_state=42
+            indices, test_size=test_size, stratify=labels, random_state=42
         )
     except ValueError:
         # A class has too few samples to stratify
         return train_test_split(
-            indices, test_size=HOLDOUT_FRACTION, random_state=42
+            indices, test_size=test_size, random_state=42
         )
 
 
