@@ -1,4 +1,6 @@
-# Exact versions tested together; upgrade deliberately and re-run the tests
+# Exact versions tested together; upgrade deliberately and re-run the tests.
+# Docker and CI install requirements.lock; regenerate it after editing this
+# file with the command at the top of the lockfile.
 # --- ML & Data Handling ---
 tensorflow==2.19.1
 numpy==1.26.4

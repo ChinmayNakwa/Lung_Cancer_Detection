@@ -7,8 +7,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# The lockfile pins every transitive dependency resolved from requirements.txt
+COPY requirements.lock .
+RUN pip install --no-cache-dir -r requirements.lock
 
 COPY . .
 
