@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getStats, getModels, triggerRetrain, Stats, ModelInfo } from '@/app/lib/api';
+import { getStats, getModels, triggerRetrain, ApiError, Stats, ModelInfo } from '@/app/lib/api';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Terminal, Loader2, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import clsx from 'clsx';
@@ -16,6 +17,8 @@ export default function AdminPage() {
   // New State for Retraining UI
   const [retrainStatus, setRetrainStatus] = useState<'idle' | 'loading' | 'success' | 'skipped' | 'error'>('idle');
   const [retrainResult, setRetrainResult] = useState<any>(null);
+  // HTTP status of a failed retrain request; null means the API was unreachable
+  const [retrainErrorStatus, setRetrainErrorStatus] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([getStats(), getModels()])
@@ -46,6 +49,7 @@ export default function AdminPage() {
           setRetrainStatus('skipped');
       }
     } catch (e) {
+      setRetrainErrorStatus(e instanceof ApiError ? e.status : null);
       setRetrainStatus('error');
     }
   };
@@ -146,7 +150,14 @@ export default function AdminPage() {
                                     </>
                                 )}
 
-                                {retrainStatus === 'skipped' && (
+                                {retrainStatus === 'skipped' && retrainResult?.reason === 'already_running' && (
+                                    <>
+                                        <p className="text-yellow-500"> OPERATION ABORTED: RETRAINING ALREADY IN PROGRESS</p>
+                                        <p className="text-white/50 italic mt-2">A retraining run is queued or running. Try again once it finishes.</p>
+                                    </>
+                                )}
+
+                                {retrainStatus === 'skipped' && retrainResult?.reason !== 'already_running' && (
                                     <>
                                         <p className="text-yellow-500"> OPERATION ABORTED: INSUFFICIENT DATA</p>
                                         <p className="text-muted">Current Buffer: <span className="text-white">{retrainResult?.unused_count}</span></p>
@@ -155,7 +166,18 @@ export default function AdminPage() {
                                     </>
                                 )}
 
-                                {retrainStatus === 'error' && (
+                                {retrainStatus === 'error' && retrainErrorStatus === 401 && (
+                                    <>
+                                        <p className="text-red-500"> ACCESS DENIED: SESSION EXPIRED</p>
+                                        <Link href="/login" className="text-primary underline">Sign in again</Link>
+                                    </>
+                                )}
+
+                                {retrainStatus === 'error' && retrainErrorStatus !== null && retrainErrorStatus !== 401 && (
+                                    <p className="text-red-500"> CRITICAL ERROR: REQUEST FAILED (HTTP {retrainErrorStatus})</p>
+                                )}
+
+                                {retrainStatus === 'error' && retrainErrorStatus === null && (
                                     <p className="text-red-500"> CRITICAL ERROR: CONNECTION FAILED</p>
                                 )}
                             </div>

@@ -21,6 +21,13 @@ export interface ModelInfo {
   created_at: string;
 }
 
+// Carries the HTTP status so callers can tell an expired login from an outage
+export class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
 // Admin endpoints require the bearer token issued by the backend at login
 function authHeaders(token?: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -63,7 +70,7 @@ export async function getModels(): Promise<{ models: ModelInfo[] }> {
 
 export async function triggerRetrain(token?: string) {
   const res = await fetch(`${API_URL}/retrain`, { method: "POST", headers: authHeaders(token) });
-  if (!res.ok) throw new Error("Retrain request failed");
+  if (!res.ok) throw new ApiError("Retrain request failed", res.status);
   return res.json();
 }
 
