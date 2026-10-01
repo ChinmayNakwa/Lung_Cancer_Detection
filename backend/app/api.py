@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import logging
@@ -15,7 +15,7 @@ from app.database import (
     get_active_model
 )
 from app.tasks import retrain_model
-from app import retrain_lock
+from app import login_limiter, retrain_lock
 from app.auth import verify_credentials, create_access_token, require_admin
 from app.config import (
     RETRAIN_THRESHOLD,
@@ -81,10 +81,21 @@ def read_root():
     }
 
 @app.post("/login")
-def login(request: LoginRequest):
+def login(request: LoginRequest, http_request: Request):
     """Exchange admin credentials for a bearer token."""
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    # Checked before the password so a blocked client learns nothing from guesses
+    wait = login_limiter.retry_after(client_ip)
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Try again later.",
+            headers={"Retry-After": str(wait)},
+        )
     if not verify_credentials(request.username, request.password):
+        login_limiter.record_failure(client_ip)
         raise HTTPException(status_code=401, detail="Invalid credentials.")
+    login_limiter.reset(client_ip)
     token, expires = create_access_token(request.username)
     return {
         "access_token": token,

@@ -24,6 +24,9 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))
+# Failed logins allowed per client IP before /login is blocked for the window
+LOGIN_MAX_FAILURES = int(os.getenv("LOGIN_MAX_FAILURES", "5"))
+LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "900"))
 
 # Browser origins allowed to call the API (comma-separated)
 CORS_ORIGINS = [

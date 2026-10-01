@@ -8,9 +8,23 @@ class FakeRedis:
 
     def __init__(self):
         self.data = {}
+        self.ttls = {}
 
     def get(self, key):
         return self.data.get(key)
+
+    def incr(self, key):
+        self.data[key] = str(int(self.data.get(key, 0)) + 1)
+        return int(self.data[key])
+
+    def expire(self, key, seconds, nx=False):
+        if nx and key in self.ttls:
+            return False
+        self.ttls[key] = seconds
+        return True
+
+    def ttl(self, key):
+        return self.ttls.get(key, -1)
 
     def set(self, key, value, nx=False, ex=None):
         if nx and key in self.data:
@@ -19,6 +33,7 @@ class FakeRedis:
         return True
 
     def delete(self, key):
+        self.ttls.pop(key, None)
         return 1 if self.data.pop(key, None) is not None else 0
 
     def eval(self, script, numkeys, key, token):

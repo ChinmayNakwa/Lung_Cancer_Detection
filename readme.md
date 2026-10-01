@@ -152,6 +152,8 @@ JWT_SECRET=<long random string, e.g. from `openssl rand -hex 32`>
 
 Reviewing labels, retraining and activating models require an admin login; these endpoints reject every request until the three auth variables are set. The frontend sends users to the backend's `/login` and needs `AUTH_SECRET` (for NextAuth) and optionally `NEXT_PUBLIC_API_URL` in `frontend/.env.local`.
 
+After `LOGIN_MAX_FAILURES` (default 5) failed logins from one IP, `/login` returns 429 for `LOGIN_WINDOW_SECONDS` (default 900). Logins made through the frontend all reach the backend from the Next.js server, so they share one limit.
+
 ### 3️⃣ Start services
 
 ```bash

@@ -1,7 +1,12 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
+// Lets the login page tell a lockout apart from a wrong password
+class RateLimited extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 declare module "next-auth" {
   interface User {
@@ -32,6 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             password: credentials.password,
           }),
         });
+        if (res.status === 429) throw new RateLimited();
         if (!res.ok) return null;
 
         const data = await res.json();

@@ -23,7 +23,9 @@ export default function LoginPage() {
     });
 
     if (res?.error) {
-      setError('Invalid credentials. Access denied.');
+      setError(res.code === 'rate_limited'
+        ? 'Too many failed attempts. Try again later.'
+        : 'Invalid credentials. Access denied.');
       setLoading(false);
     } else {
       router.push('/admin'); // Redirect to admin on success
