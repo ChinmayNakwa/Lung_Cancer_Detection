@@ -4,6 +4,7 @@ import numpy as np
 from io import BytesIO
 from pathlib import Path
 import logging
+import threading
 from app.config import BASE_MODEL_PATH, IMG_SIZE, CLASS_NAMES, model_path
 from app.database import get_active_model
 
@@ -29,6 +30,9 @@ class ModelManager:
     def __init__(self):
         self.model = None
         self.version = None  # None means the base model
+        # Predictions run in worker threads; one at a time so a version
+        # switch never loads twice or swaps the model mid-prediction
+        self._lock = threading.RLock()
 
     def _load(self, path):
         """Load model from path, or return None."""
@@ -47,14 +51,15 @@ class ModelManager:
         """Load the active model version if it differs from the loaded one."""
         active = get_active_model()
         version = active["version"] if active else None
-        if self.model is not None and version == self.version:
-            return
+        with self._lock:
+            if self.model is not None and version == self.version:
+                return
 
-        self.version = version
-        self.model = self._load(model_path(version))
-        if self.model is None and version is not None:
-            logger.warning(f"Model v{version} could not be loaded; falling back to base model")
-            self.model = self._load(BASE_MODEL_PATH)
+            self.version = version
+            self.model = self._load(model_path(version))
+            if self.model is None and version is not None:
+                logger.warning(f"Model v{version} could not be loaded; falling back to base model")
+                self.model = self._load(BASE_MODEL_PATH)
 
     def predict(self, image_bytes: bytes):
         """Predict from image bytes - matches training preprocessing exactly.
@@ -68,21 +73,22 @@ class ModelManager:
         except Exception as e:
             raise InvalidImageError(f"Could not decode image: {e}") from e
 
-        try:
-            self.sync_active_model()
-        except Exception as e:
-            logger.error(f"Could not check active model version: {e}")
-
-        if self.model is None:
-            raise ModelNotLoadedError("Model is not loaded")
-
         img_resized = img.resize((IMG_SIZE, IMG_SIZE))
         img_array = tf.keras.preprocessing.image.img_to_array(img_resized)
         img_array = np.expand_dims(img_array, axis=0)
         # img_array = img_array / 255.0
 
-        # Make prediction
-        predictions = self.model.predict(img_array)
+        with self._lock:
+            try:
+                self.sync_active_model()
+            except Exception as e:
+                logger.error(f"Could not check active model version: {e}")
+
+            if self.model is None:
+                raise ModelNotLoadedError("Model is not loaded")
+
+            # Make prediction
+            predictions = self.model.predict(img_array)
         scores = predictions[0]
         predicted_class = CLASS_NAMES[np.argmax(scores)]
         confidence = 100 * np.max(scores)

@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import psycopg2
@@ -93,6 +94,37 @@ def test_predict_rejects_oversized_upload(monkeypatch):
     response = client.post("/predict", files=files)
 
     assert response.status_code == 413
+
+def test_predict_runs_blocking_work_off_the_event_loop(monkeypatch):
+    """
+    Model and database calls must not run on the event loop, or one slow
+    prediction would stall every other request.
+    """
+    def on_event_loop():
+        try:
+            asyncio.get_running_loop()
+            return True
+        except RuntimeError:
+            return False
+
+    calls = []
+
+    def fake_predict(image_bytes):
+        calls.append(on_event_loop())
+        return {"predicted_class": "benign", "confidence": "99.00%"}
+
+    def fake_save_prediction(**kwargs):
+        calls.append(on_event_loop())
+        return 7
+
+    monkeypatch.setattr("app.api.predict", fake_predict)
+    monkeypatch.setattr("app.api.save_prediction", fake_save_prediction)
+
+    response = client.post("/predict", files={"file": ("scan.png", b"png", "image/png")})
+
+    assert response.status_code == 200
+    assert response.json()["id"] == 7
+    assert calls == [False, False]
 
 @pytest.mark.parametrize("method, path", [
     ("PUT", "/correct/1"),

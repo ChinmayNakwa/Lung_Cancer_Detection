@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import logging
@@ -117,7 +118,8 @@ async def predict_image(file: UploadFile = File(...)):
     
     try:
         logger.info("Making prediction...")
-        prediction_result = predict(image_bytes)
+        # Model and database calls block, so keep them off the event loop
+        prediction_result = await run_in_threadpool(predict, image_bytes)
     except InvalidImageError:
         raise HTTPException(status_code=400, detail="File could not be read as an image.")
     except ModelNotLoadedError:
@@ -127,7 +129,8 @@ async def predict_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="An internal error occurred.")
     
     try:
-        prediction_id = save_prediction(
+        prediction_id = await run_in_threadpool(
+            save_prediction,
             filename=file.filename,
             image_bytes=image_bytes,
             predicted_class=prediction_result["predicted_class"],
