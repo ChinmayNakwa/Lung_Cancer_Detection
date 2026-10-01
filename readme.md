@@ -83,6 +83,8 @@ Each retraining cycle produces:
 
 MLflow is used strictly for **experiment tracking and reproducibility**, not as a serving layer.
 
+Run artifacts (plots, logged models) are uploaded through the MLflow server and stored on its `mlflow_data` volume, so they survive rebuilding the API and worker containers.
+
 ### What is tracked:
 
 * 🔢 Metrics
