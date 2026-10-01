@@ -14,6 +14,7 @@ from PIL import Image
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 
+from app import retrain_lock
 from app.celery_app import celery_app
 from app.database import (
     get_unused_predictions,
@@ -166,7 +167,20 @@ def log_evaluation_metrics(model, X, y, save_path="/tmp/confusion_matrix.png"):
 # Celery Task: Retraining
 # ------------------------------------------------------------------
 @celery_app.task(name="app.tasks.retrain_model")
-def retrain_model():
+def retrain_model(lock_token=None):
+    # The API takes the lock when queuing; a task queued without one takes it here
+    if lock_token is None:
+        lock_token = retrain_lock.acquire()
+        if lock_token is None:
+            logger.info("Retraining already queued or running; skipping")
+            return {"status": "skipped", "reason": "already_running"}
+    try:
+        return _retrain()
+    finally:
+        retrain_lock.release(lock_token)
+
+
+def _retrain():
     try:
         logger.info("Starting model retraining")
 

@@ -67,6 +67,8 @@ The backbone is partially frozen during retraining to support **incremental lear
   * New data is incorporated
   * A new model version is produced
 
+Only one retraining run is queued or running at a time; a Redis lock makes further triggers report `already_running` until it finishes.
+
 A share of the reviewed samples (`HOLDOUT_FRACTION`, default 20%) is held out from training. The new model is activated only if its accuracy on that holdout is at least as good as the current model's; otherwise it is saved as an inactive version that can be activated manually.
 
 Each retraining cycle produces:

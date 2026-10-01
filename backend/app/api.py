@@ -15,6 +15,7 @@ from app.database import (
     get_active_model
 )
 from app.tasks import retrain_model
+from app import retrain_lock
 from app.auth import verify_credentials, create_access_token, require_admin
 from app.config import (
     RETRAIN_THRESHOLD,
@@ -48,6 +49,17 @@ class CorrectionRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+def queue_retrain():
+    """Queue a retraining task; return None if one is already queued or running."""
+    token = retrain_lock.acquire()
+    if token is None:
+        return None
+    try:
+        return retrain_model.delay(lock_token=token)
+    except Exception:
+        retrain_lock.release(token)
+        raise
 
 @app.on_event("startup")
 async def startup_event():
@@ -139,9 +151,8 @@ def correct_label(prediction_id: int, request: CorrectionRequest):
         unused_count = count_unused_predictions()
         logger.info(f"Reviewed samples awaiting training: {unused_count}")
 
-        if unused_count >= RETRAIN_THRESHOLD:
+        if unused_count >= RETRAIN_THRESHOLD and queue_retrain() is not None:
             logger.info(f"Triggering retraining with {unused_count} images")
-            retrain_model.delay()
             result["retraining_triggered"] = True
 
         return result
@@ -164,7 +175,15 @@ def trigger_retrain():
             "required": RETRAIN_THRESHOLD
         }
     
-    task = retrain_model.delay()
+    task = queue_retrain()
+    if task is None:
+        return {
+            "status": "skipped",
+            "reason": "already_running",
+            "unused_count": unused_count,
+            "required": RETRAIN_THRESHOLD
+        }
+
     return {
         "status": "triggered",
         "task_id": task.id,
